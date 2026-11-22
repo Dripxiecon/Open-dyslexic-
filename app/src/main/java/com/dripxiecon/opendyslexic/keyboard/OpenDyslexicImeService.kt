@@ -2,14 +2,12 @@ package com.dripxiecon.opendyslexic.keyboard
 
 import android.inputmethodservice.InputMethodService
 import android.view.View
-import com.dripxiecon.opendyslexic.layouts.KeyboardLayouts
+import com.dripxiecon.opendyslexic.layouts.KeyDefinition
 import com.dripxiecon.opendyslexic.layouts.KeyKind
+import com.dripxiecon.opendyslexic.layouts.KeyboardLayouts
 import com.dripxiecon.opendyslexic.layouts.KeyboardMode
 
-/**
- * Android entry point. The service coordinates layout state while the view
- * remains responsible only for drawing and hit-testing.
- */
+/** Coordinates keyboard state; rendering and touch handling stay in KeyboardView. */
 class OpenDyslexicImeService : InputMethodService() {
     private var mode = KeyboardMode.LETTERS
     private var shifted = false
@@ -23,12 +21,7 @@ class OpenDyslexicImeService : InputMethodService() {
         }
     }
 
-    override fun onFinishInputView(finishingInput: Boolean) {
-        keyboardView = null
-        super.onFinishInputView(finishingInput)
-    }
-
-    private fun handleKey(key: com.dripxiecon.opendyslexic.layouts.KeyDefinition) {
+    private fun handleKey(key: KeyDefinition) {
         when (key.kind) {
             KeyKind.SHIFT -> {
                 shifted = !shifted
@@ -47,9 +40,7 @@ class OpenDyslexicImeService : InputMethodService() {
                 refreshLayout()
             }
             else -> {
-                val output = if (key.kind == KeyKind.TEXT && shifted) {
-                    key.value.uppercase()
-                } else null
+                val output = if (key.kind == KeyKind.TEXT && shifted) key.value.uppercase() else null
                 KeyHandler.commit(key, currentInputConnection, output)
                 if (shifted && key.kind == KeyKind.TEXT) {
                     shifted = false

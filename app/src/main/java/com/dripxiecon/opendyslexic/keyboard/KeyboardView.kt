@@ -25,13 +25,20 @@ class KeyboardView(context: Context) : View(context) {
         invalidate()
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val desiredHeight = (240 * resources.displayMetrics.density).toInt()
+        val measuredWidth = MeasureSpec.getSize(widthMeasureSpec)
+        val measuredHeight = resolveSize(desiredHeight, heightMeasureSpec)
+        setMeasuredDimension(measuredWidth, measuredHeight)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (keys.isEmpty()) return
 
         val columns = 10
         val rows = (keys.size + columns - 1) / columns
-        val gap = 5f
+        val gap = 5f * resources.displayMetrics.density
         val cellWidth = (width - gap * (columns + 1)) / columns
         val cellHeight = (height - gap * (rows + 1)) / rows
 
@@ -48,7 +55,7 @@ class KeyboardView(context: Context) : View(context) {
             canvas.drawRoundRect(bounds, 10f, 10f, paint)
             paint.color = 0xFF202027.toInt()
             paint.typeface = keyTypeface
-            paint.textSize = 22f
+            paint.textSize = 22f * resources.displayMetrics.scaledDensity
             paint.textAlign = Paint.Align.CENTER
             val baseline = bounds.centerY() - (paint.ascent() + paint.descent()) / 2
             canvas.drawText(key.label, bounds.centerX(), baseline, paint)
@@ -58,7 +65,7 @@ class KeyboardView(context: Context) : View(context) {
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_UP && keys.isNotEmpty()) {
             val columns = 10
-            val gap = 5f
+            val gap = 5f * resources.displayMetrics.density
             val cellWidth = (width - gap * (columns + 1)) / columns
             val rows = (keys.size + columns - 1) / columns
             val cellHeight = (height - gap * (rows + 1)) / rows

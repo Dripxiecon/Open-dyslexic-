@@ -14,7 +14,7 @@ object KeyHandler {
             KeyKind.DELETE -> {
                 val selected = connection?.getSelectedText(0)
                 if (!selected.isNullOrEmpty()) {
-                    connection.commitText("", 1)
+                    connection?.commitText("", 1)
                 } else {
                     connection?.deleteSurroundingText(1, 0)
                 }

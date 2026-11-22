@@ -49,13 +49,11 @@ class KeyboardView(context: Context) : View(context) {
 
         rows.forEachIndexed { rowIndex, row ->
             val totalWeight = row.keys.sumOf { it.weight.toDouble() }.toFloat()
-            val contentWidth = row.startInset * normalKeyWidth + totalWeight * normalKeyWidth
-            val extra = (width - contentWidth - gap * (row.keys.size + 1)).coerceAtLeast(0f)
             val scale = if (totalWeight > 0f) {
                 ((width - gap * (row.keys.size + 1) - row.startInset * normalKeyWidth) / totalWeight)
                     .coerceAtLeast(0f)
             } else normalKeyWidth
-            var left = gap + row.startInset * normalKeyWidth + extra / 2f
+            var left = gap + row.startInset * normalKeyWidth
             val top = verticalGap + rowIndex * (rowHeight + verticalGap)
 
             row.keys.forEach { key ->
@@ -69,20 +67,19 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     private fun drawKey(canvas: Canvas, rect: RectF, key: KeyDefinition) {
-        val special = key.kind != KeyKind.TEXT
         paint.color = when (key.kind) {
             KeyKind.ENTER -> 0xFF6477B8.toInt()
             KeyKind.SHIFT, KeyKind.DELETE, KeyKind.SWITCH_NUMBERS,
             KeyKind.SWITCH_SYMBOLS, KeyKind.SWITCH_LETTERS -> 0xFFB9BAC5.toInt()
-            else -> if (special) 0xFFD1D2DA.toInt() else 0xFFF1F1F5.toInt()
+            else -> 0xFFF1F1F5.toInt()
         }
         canvas.drawRoundRect(rect, 9f * density, 9f * density, paint)
 
         paint.color = if (key.kind == KeyKind.ENTER) 0xFFFFFFFF.toInt() else 0xFF202027.toInt()
         paint.typeface = keyTypeface
         paint.textAlign = Paint.Align.CENTER
-        val maxTextSize = if (key.label.length > 4) 13f else 20f
-        paint.textSize = maxTextSize * resources.displayMetrics.scaledDensity
+        paint.textSize = (if (key.label.length > 4) 13f else 20f) *
+            resources.displayMetrics.scaledDensity
         val baseline = rect.centerY() - (paint.ascent() + paint.descent()) / 2f
         canvas.drawText(key.label, rect.centerX(), baseline, paint)
     }
@@ -90,12 +87,10 @@ class KeyboardView(context: Context) : View(context) {
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_UP -> {
-                if (hitTargets.isEmpty()) invalidate()
                 hitTargets.firstOrNull { it.bounds.contains(event.x, event.y) }
                     ?.let { onKeyPressed?.invoke(it.key) }
                 performClick()
             }
-            MotionEvent.ACTION_CANCEL -> Unit
         }
         return true
     }

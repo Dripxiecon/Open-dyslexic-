@@ -30,7 +30,7 @@ object KeyboardLayouts {
 
     fun numbers(): List<KeyRow> = listOf(
         KeyRow("1234567890".map { KeyDefinition(it.toString()) }),
-        KeyRow("@#$%&-*+".map { KeyDefinition(it.toString()) }),
+        KeyRow("@\$%&-*+".map { KeyDefinition(it.toString()) }),
         KeyRow(
             listOf(KeyDefinition("=\\<", kind = KeyKind.SWITCH_SYMBOLS, weight = 1.45f)) +
                 "()/;:!?".map { KeyDefinition(it.toString()) } +

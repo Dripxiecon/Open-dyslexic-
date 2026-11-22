@@ -8,25 +8,30 @@ import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
 import com.dripxiecon.opendyslexic.layouts.KeyDefinition
+import com.dripxiecon.opendyslexic.layouts.KeyKind
+import com.dripxiecon.opendyslexic.layouts.KeyRow
 
-/** Lightweight custom-drawn keyboard view; no per-key view hierarchy. */
+/** Single custom-drawn view: avoids allocating a separate Android View for every key. */
 class KeyboardView(context: Context) : View(context) {
+    private data class HitTarget(val bounds: RectF, val key: KeyDefinition)
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val bounds = RectF()
-    private var keys: List<KeyDefinition> = emptyList()
+    private val hitTargets = ArrayList<HitTarget>()
+    private var rows: List<KeyRow> = emptyList()
     var onKeyPressed: ((KeyDefinition) -> Unit)? = null
 
+    private val density = resources.displayMetrics.density
     private val keyTypeface: Typeface = runCatching {
         Typeface.createFromAsset(context.assets, "fonts/OpenDyslexic-Regular.otf")
     }.getOrDefault(Typeface.DEFAULT)
 
-    fun setKeys(value: List<KeyDefinition>) {
-        keys = value
+    fun setRows(value: List<KeyRow>) {
+        rows = value
         invalidate()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val desiredHeight = (240 * resources.displayMetrics.density).toInt()
+        val desiredHeight = (264 * density).toInt()
         val measuredWidth = MeasureSpec.getSize(widthMeasureSpec)
         val measuredHeight = resolveSize(desiredHeight, heightMeasureSpec)
         setMeasuredDimension(measuredWidth, measuredHeight)
@@ -34,48 +39,63 @@ class KeyboardView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (keys.isEmpty()) return
+        hitTargets.clear()
+        if (rows.isEmpty()) return
 
-        val columns = 10
-        val rows = (keys.size + columns - 1) / columns
-        val gap = 5f * resources.displayMetrics.density
-        val cellWidth = (width - gap * (columns + 1)) / columns
-        val cellHeight = (height - gap * (rows + 1)) / rows
+        val gap = 5f * density
+        val verticalGap = 7f * density
+        val rowHeight = (height - verticalGap * (rows.size + 1)) / rows.size
+        val normalKeyWidth = (width - gap * 11f) / 10f
 
-        keys.forEachIndexed { index, key ->
-            val row = index / columns
-            val column = index % columns
-            bounds.set(
-                gap + column * (cellWidth + gap),
-                gap + row * (cellHeight + gap),
-                gap + column * (cellWidth + gap) + cellWidth,
-                gap + row * (cellHeight + gap) + cellHeight
-            )
-            paint.color = 0xFFE3E3E8.toInt()
-            canvas.drawRoundRect(bounds, 10f, 10f, paint)
-            paint.color = 0xFF202027.toInt()
-            paint.typeface = keyTypeface
-            paint.textSize = 22f * resources.displayMetrics.scaledDensity
-            paint.textAlign = Paint.Align.CENTER
-            val baseline = bounds.centerY() - (paint.ascent() + paint.descent()) / 2
-            canvas.drawText(key.label, bounds.centerX(), baseline, paint)
+        rows.forEachIndexed { rowIndex, row ->
+            val totalWeight = row.keys.sumOf { it.weight.toDouble() }.toFloat()
+            val contentWidth = row.startInset * normalKeyWidth + totalWeight * normalKeyWidth
+            val extra = (width - contentWidth - gap * (row.keys.size + 1)).coerceAtLeast(0f)
+            val scale = if (totalWeight > 0f) {
+                ((width - gap * (row.keys.size + 1) - row.startInset * normalKeyWidth) / totalWeight)
+                    .coerceAtLeast(0f)
+            } else normalKeyWidth
+            var left = gap + row.startInset * normalKeyWidth + extra / 2f
+            val top = verticalGap + rowIndex * (rowHeight + verticalGap)
+
+            row.keys.forEach { key ->
+                val keyWidth = key.weight * scale
+                val rect = RectF(left, top, left + keyWidth, top + rowHeight)
+                drawKey(canvas, rect, key)
+                hitTargets.add(HitTarget(RectF(rect), key))
+                left += keyWidth + gap
+            }
         }
     }
 
+    private fun drawKey(canvas: Canvas, rect: RectF, key: KeyDefinition) {
+        val special = key.kind != KeyKind.TEXT
+        paint.color = when (key.kind) {
+            KeyKind.ENTER -> 0xFF6477B8.toInt()
+            KeyKind.SHIFT, KeyKind.DELETE, KeyKind.SWITCH_NUMBERS,
+            KeyKind.SWITCH_SYMBOLS, KeyKind.SWITCH_LETTERS -> 0xFFB9BAC5.toInt()
+            else -> if (special) 0xFFD1D2DA.toInt() else 0xFFF1F1F5.toInt()
+        }
+        canvas.drawRoundRect(rect, 9f * density, 9f * density, paint)
+
+        paint.color = if (key.kind == KeyKind.ENTER) 0xFFFFFFFF.toInt() else 0xFF202027.toInt()
+        paint.typeface = keyTypeface
+        paint.textAlign = Paint.Align.CENTER
+        val maxTextSize = if (key.label.length > 4) 13f else 20f
+        paint.textSize = maxTextSize * resources.displayMetrics.scaledDensity
+        val baseline = rect.centerY() - (paint.ascent() + paint.descent()) / 2f
+        canvas.drawText(key.label, rect.centerX(), baseline, paint)
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_UP && keys.isNotEmpty()) {
-            val columns = 10
-            val gap = 5f * resources.displayMetrics.density
-            val cellWidth = (width - gap * (columns + 1)) / columns
-            val rows = (keys.size + columns - 1) / columns
-            val cellHeight = (height - gap * (rows + 1)) / rows
-            val column = ((event.x - gap) / (cellWidth + gap)).toInt()
-            val row = ((event.y - gap) / (cellHeight + gap)).toInt()
-            val index = row * columns + column
-            if (column in 0 until columns && row >= 0 && index in keys.indices) {
-                onKeyPressed?.invoke(keys[index])
+        when (event.actionMasked) {
+            MotionEvent.ACTION_UP -> {
+                if (hitTargets.isEmpty()) invalidate()
+                hitTargets.firstOrNull { it.bounds.contains(event.x, event.y) }
+                    ?.let { onKeyPressed?.invoke(it.key) }
+                performClick()
             }
-            performClick()
+            MotionEvent.ACTION_CANCEL -> Unit
         }
         return true
     }

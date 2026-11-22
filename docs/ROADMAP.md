@@ -8,8 +8,10 @@
 - [ ] Build and install on a physical Android device
 
 ## Phase 2 — Core typing
-- [ ] QWERTY row geometry and proper staggered rows
-- [ ] Shift, uppercase/lowercase, numbers, and symbols
+- [x] Multi-row QWERTY layout with staggered rows
+- [x] Shift key and one-shot uppercase mode
+- [x] Dedicated number and symbol layouts
+- [x] Variable-width special keys and position-based touch handling
 - [ ] Long-press alternate characters
 - [ ] Configurable key size and spacing
 
